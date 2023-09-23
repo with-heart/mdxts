@@ -2,6 +2,7 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.api'
 import { IRawGrammar, Registry, parseRawGrammar } from 'vscode-textmate'
 import { createOnigScanner, createOnigString, loadWASM } from 'vscode-oniguruma'
 import { wireTextMateGrammars } from './textmate'
+import { parseHex } from './utils'
 
 export type ScopeName = string
 
@@ -24,7 +25,7 @@ async function loadVSCodeOnigurumWASM() {
   }
 }
 
-export async function initializeMonaco(editor: any) {
+export async function initializeMonaco(monaco: any, editor: any, theme: any) {
   await loadVSCodeOnigurumWASM()
 
   const registry = new Registry({
@@ -40,7 +41,7 @@ export async function initializeMonaco(editor: any) {
 
       return parseRawGrammar(grammar, path)
     },
-    theme: JSON.parse(process.env.MDXTS_THEME),
+    theme,
   })
   const grammars = new Map()
 
@@ -53,4 +54,59 @@ export async function initializeMonaco(editor: any) {
   })
 
   await wireTextMateGrammars(registry, grammars, editor)
+
+  await injectCSS(registry)
+}
+
+export function generateTokensCSSForColorMap(colorMap: any): string {
+  const rules: string[] = []
+  for (let i = 1, len = colorMap.length; i < len; i++) {
+    const color = colorMap[i]
+    rules[i] = `.mtk${i} { color: ${color}; }`
+  }
+  rules.push('.mtki { font-style: italic; }')
+  rules.push('.mtkb { font-weight: bold; }')
+  rules.push(
+    '.mtku { text-decoration: underline; text-underline-position: under; }'
+  )
+  rules.push('.mtks { text-decoration: line-through; }')
+  rules.push(
+    '.mtks.mtku { text-decoration: underline line-through; text-underline-position: under; }'
+  )
+  return rules.join('\n')
+}
+
+async function injectCSS(registry) {
+  const cssColors = registry.getColorMap()
+  const colorMap = cssColors.map(parseHex)
+  const css = generateTokensCSSForColorMap(colorMap)
+  const style = createStyleElementForColorsCSS()
+  console.log({
+    cssColors,
+    colorMap,
+    css,
+  })
+  style.innerHTML = css
+}
+
+function createStyleElementForColorsCSS() {
+  // We want to ensure that our <style> element appears after Monaco's so that
+  // we can override some styles it inserted for the default theme.
+  const style = document.createElement('style')
+
+  // We expect the styles we need to override to be in an element with the class
+  // name 'monaco-colors' based on:
+  // https://github.com/microsoft/vscode/blob/f78d84606cd16d75549c82c68888de91d8bdec9f/src/vs/editor/standalone/browser/standaloneThemeServiceImpl.ts#L206-L214
+  const monacoColors = document.getElementsByClassName('monaco-colors')[0]
+  if (monacoColors) {
+    monacoColors.parentElement?.insertBefore(style, monacoColors.nextSibling)
+  } else {
+    // Though if we cannot find it, just append to <head>.
+    let { head } = document
+    if (head == null) {
+      head = document.getElementsByTagName('head')[0]
+    }
+    head?.appendChild(style)
+  }
+  return style
 }
