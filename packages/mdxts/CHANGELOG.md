@@ -1,5 +1,20 @@
 # mdxts
 
+## 0.5.0
+
+### Minor Changes
+
+- ad4fd02: Use package json path when calculating entry source files.
+- 61e72cd: Add `MDX` component for rendering mdx source code.
+- 79e7e5d: Fix file path to pathname slugs for all caps e.g. `MDX.tsx` -> `mdx`
+  and `MDXProvider.tsx` -> `mdx-provider`.
+
+### Patch Changes
+
+- cf73027: Fix navigation order by filtering out private files.
+- a4cc4c3: Fixes code blocks being treated as global scope when no imports or exports are present.
+- 42eea84: Fix parsing directory base name to title.
+
 ## 0.4.1
 
 ### Patch Changes
